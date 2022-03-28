@@ -1,0 +1,125 @@
+# name:    README.org
+# author:  nbehrnd@yahoo.com
+# license: GPL v2, 2022
+# date:    <2022-03-28 Mon>
+# edit:
+
+#+OPTIONS: toc:nil
+
+* background/intent
+
+  [[https://github.com/openbabel/openbabel][OpenBabel]] may covert e.g., SMILES strings into their canonical form.  On
+  occasion, the conversion yields a warning/an error (cf. [[https://open-babel.readthedocs.io/en/latest/Command-line_tools/babel.html][section 3.2]] of
+  OpenBabel's documentation regarding the adjustable /error level/), e.g.
+
+  #+begin_src bash :exports both :output results code :results code
+obabel -:"c1ccncc1" -ocan
+  #+end_src
+
+  #+RESULTS:
+  #+begin_src bash
+  c1cccnc1	
+  #+end_src
+
+  versus
+
+  #+begin_src bash :exports both :output results code :results code
+obabel -:"c1ccncc5" -ocan
+  #+end_src
+
+  #+begin_src bash :tangle no
+  : ==============================
+  : *** Open Babel Warning  in ParseSmiles
+  : Invalid SMILES string: 2 unmatched ring bonds.
+  :
+  : 0 molecules converted
+  #+end_src
+
+  It has been helpful to remove SMILES causing a warning/an error from a list of
+  SMILES with a file ([[https://github.com/openbabel/openbabel/issues/2455][example]]).
+
+* the filter
+
+  Though written in a session of Linux Debian 12/bookworm (branch testing), the
+  use of AWK aims to provide a filter portable to other OSes.  The discern of
+  SMILES passing the filter successfully from those which do not is by count of
+  lines in an intermediate file recording both the standard output, as well as
+  the error stream.
+
+    #+begin_src awk :tangle filter.awk
+#!/usr/bin/awk -f
+
+# name:    filter.awk
+# author:  nbehrnd@yahoo.com
+# license: GPL v2, 2022
+# date:    <2022-03-23 Wed>
+# edit:    <2022-03-28 Mon>
+
+# Retain "reasonable" SMILES strings OpenBabel may process gently.
+#
+# For a successful application of this filter, this AWK script depends
+# on a running installation of OpenBabel and AWK.  (Tests suggest you may
+# use GNU AWK/gawk and nawk instead of AWK as well.)
+#
+# Write a list of SMILES into the same directory as this AWK script, e.g.,
+# as file check01.smi.  Then deploy this filter e.g., by
+#
+# awk -f filter.awk check01.smi
+#
+# to process the content of the list of SMILES.  The output is a list of
+# canonical SMILES which OpenBabel has no difficulty to process.  Entries
+# which cause a warning by OpenBabel (i.e., a five-line output during the
+# test conversion) are not reported back.
+
+{test_convert = "obabel -:\"" $1 "\" -ocan > shuttle.txt 2>&1";
+    system(test_convert);
+
+    filter = "awk 'END{if (NR==2) {print $0;}}' shuttle.txt"
+    system(filter);
+}
+  #+end_src
+
+
+* reference data
+
+  With the test data (~check01.smi~) provided
+  
+  #+begin_src bash :tangle check01.smi
+CO[C@@H]([C@@H](C[C@H]([C@@H]1OC)O)O)C1OC
+COC(Cc(c(O)c(cc1OC)C(OC(c(cc(c(O)c2)OC)c2OC)=O)=O)c1O)=O
+CC(OC(CCC(OC(c(ccc(O[C@@H](C(C(C=CC1)=C1O)=O)C(O)=O)c1)c1O)=O)=O)=O)=O
+CC(O/C(\CCC[C@H]([C@H](C(CC=C)=C)OC(O)=C)O)=C(\COC)/OCO)=O
+c1ccncc1
+C1CCCC5
+CC
+CCC
+  #+end_src
+
+  only six out of eight entries are reported as (processed) canonical SMILES:
+
+  #+begin_src bash :tangle no
+$ awk -f filter.awk check01.smi
+COC1[C@@H](OC)[C@H](O)C[C@H]([C@@H]1OC)O
+COC(=O)Cc1c(O)c(cc(c1O)OC)C(=O)OC(=O)c1cc(OC)c(cc1OC)O
+O=C(OC(=O)c1ccc(cc1O)O[C@@H](C(=O)C1=C(O)CC=C1)C(=O)O)CCC(=O)OC(=O)C
+c1cccnc1
+CC
+CCC
+  #+end_src
+
+* project content
+
+  #+begin_src bash :exports both :output results code :results code
+tree -L 1
+  #+end_src
+
+  #+RESULTS:
+  #+begin_src bash
+  .
+  ├── check01.smi
+  ├── filter.awk
+  ├── LICENSE
+  └── README.org
+
+  0 directories, 4 files
+  #+end_src
